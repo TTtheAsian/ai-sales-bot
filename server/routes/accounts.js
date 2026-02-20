@@ -47,4 +47,20 @@ router.delete('/:id', async (req, res) => {
     res.status(204).send();
 });
 
+// GET unmatched queries (for dashboard display)
+router.get('/unmatched', async (req, res) => {
+    const { accountId } = req.query;
+    if (!accountId) return res.status(400).json({ error: 'accountId is required' });
+
+    const { data, error } = await supabase
+        .from('unmatched_queries')
+        .select('*')
+        .eq('account_id', accountId)
+        .order('received_at', { ascending: false })
+        .limit(50);
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+});
+
 module.exports = router;

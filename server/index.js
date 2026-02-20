@@ -6,7 +6,19 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// Trust proxy for Vercel / reverse-proxy environments
+app.set('trust proxy', 1);
+
+// CORS — allow configured frontend URL or all origins in dev
+const allowedOrigins = process.env.FRONTEND_URL
+    ? [process.env.FRONTEND_URL]
+    : true; // Allow all in dev
+
+app.use(cors({
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(bodyParser.json());
 
 // Middleware
@@ -32,11 +44,3 @@ if (process.env.NODE_ENV !== 'production') {
         console.log(`Server is running on port ${PORT}`);
     });
 }
-
-app.get('/', (req, res) => {
-    res.send('AI Sales Bot Server is running!');
-});
-
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});

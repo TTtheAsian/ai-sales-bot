@@ -1,20 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "AI Sales Bot",
-  description: "Automated Social Media Sales Agent",
+  title: "AI Sales Bot | SocialManager",
+  description: "Automated Social Media Sales Agent — Manage Facebook & Instagram auto-reply rules powered by AI",
+  keywords: "AI sales bot, social media automation, Facebook auto reply, Instagram automation",
 };
 
 export default function RootLayout({
@@ -23,10 +13,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html lang="zh-TW">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
+      <body className="scanline antialiased">
         {children}
       </body>
     </html>
