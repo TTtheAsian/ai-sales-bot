@@ -2,22 +2,25 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Activity, MessageSquare, Smartphone, Zap, TrendingUp, Clock } from 'lucide-react';
+import { Activity, MessageSquare, Smartphone, Zap, TrendingUp, Clock, Users } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function OverviewPage() {
-    const [stats, setStats] = useState({ accounts: 0, rules: 0, active: 0, unmatched: 0 });
+    const [stats, setStats] = useState({ accounts: 0, rules: 0, active: 0, unmatched: 0, contacts: 0 });
     const [unmatched, setUnmatched] = useState<{ message: string; received_at: string }[]>([]);
     const [loading, setLoading] = useState(true);
 
     const load = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
         const h = { Authorization: `Bearer ${session?.access_token}` };
-        const [acc, rules] = await Promise.all([
+
+        const [acc, rules, contacts] = await Promise.all([
             fetch(`${API_URL}/api/accounts`, { headers: h }).then(r => r.json()),
             fetch(`${API_URL}/api/rules`, { headers: h }).then(r => r.json()),
+            supabase.from('contacts').select('*', { count: 'exact', head: true })
         ]);
+
         const unmatch = acc.length > 0
             ? await fetch(`${API_URL}/api/accounts/unmatched?accountId=${acc[0]?.id}`, { headers: h }).then(r => r.json()).catch(() => [])
             : [];
@@ -27,6 +30,7 @@ export default function OverviewPage() {
             rules: Array.isArray(rules) ? rules.length : 0,
             active: Array.isArray(rules) ? rules.filter((r: { is_active: boolean }) => r.is_active).length : 0,
             unmatched: Array.isArray(unmatch) ? unmatch.length : 0,
+            contacts: contacts.count || 0,
         });
         setUnmatched(Array.isArray(unmatch) ? unmatch.slice(0, 5) : []);
         setLoading(false);
@@ -36,8 +40,8 @@ export default function OverviewPage() {
 
     const STAT_CARDS = [
         { label: '已連結帳號', value: stats.accounts, icon: Smartphone, color: 'var(--neon-cyan)' },
+        { label: '總受眾數量', value: stats.contacts, icon: Users, color: 'var(--neon-purple)' },
         { label: '自動回覆規則', value: stats.rules, icon: MessageSquare, color: 'var(--neon-pink)' },
-        { label: '啟用中規則', value: stats.active, icon: Zap, color: 'var(--neon-green, #00ff88)' },
         { label: '未匹配訊息', value: stats.unmatched, icon: TrendingUp, color: 'var(--neon-gold)' },
     ];
 

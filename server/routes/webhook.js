@@ -26,11 +26,9 @@ router.post('/', async (req, res) => {
 
     console.log('Received webhook:', JSON.stringify(body, null, 2));
 
-    // Support both 'page' (Messenger) and 'instagram' objects
     if (body.object === 'page' || body.object === 'instagram') {
-
         for (const entry of body.entry) {
-            const pageId = entry.id; // This is the Page ID or IG Business Account ID
+            const pageId = entry.id;
             const webhookEvent = entry.messaging ? entry.messaging[0] : null;
 
             if (webhookEvent && webhookEvent.message && webhookEvent.message.text) {
@@ -38,7 +36,7 @@ router.post('/', async (req, res) => {
                 const messageText = webhookEvent.message.text.toLowerCase();
 
                 try {
-                    // 1. Fetch Account (Page) credentials from DB
+                    // 1. Fetch Account and associated SaaS user_id
                     const { data: account, error: accountError } = await supabase
                         .from('accounts')
                         .select('*')
@@ -50,10 +48,38 @@ router.post('/', async (req, res) => {
                         continue;
                     }
 
-                    // 2. Check for matching rules
-                    // Simple keyword match: check if message contains generic keyword
-                    // Optimized: Fetch all rules for this account
-                    const { data: rules, error: rulesError } = await supabase
+                    const userId = account.user_id;
+
+                    // 2. Identify/Upsert Contact (Audience)
+                    const { data: contact, error: contactError } = await supabase
+                        .from('contacts')
+                        .upsert(
+                            {
+                                user_id: userId,
+                                fb_user_id: senderId,
+                                last_interaction: new Date().toISOString()
+                            },
+                            { onConflict: 'user_id, fb_user_id' }
+                        )
+                        .select()
+                        .single();
+
+                    if (contactError) {
+                        console.error('Error upserting contact:', contactError);
+                    }
+
+                    // 3. Log Incoming Message
+                    if (contact) {
+                        await supabase.from('messages').insert({
+                            user_id: userId,
+                            contact_id: contact.id,
+                            text: webhookEvent.message.text,
+                            sender: 'user'
+                        });
+                    }
+
+                    // 4. Check for matching rules
+                    const { data: rules } = await supabase
                         .from('rules')
                         .select('*')
                         .eq('account_id', account.id)
@@ -65,12 +91,30 @@ router.post('/', async (req, res) => {
                     }
 
                     if (matchedRule) {
-                        // 3. Send Reply
-                        // Replace placeholder {username} if needed (requires fetching user profile, skipping for now)
+                        // 5. Send Reply and Log Bot Message
                         await sendMessage(senderId, matchedRule.reply_content, account.access_token);
+
+                        // Handle Actions (e.g., tagging)
+                        if (matchedRule.actions && Array.isArray(matchedRule.actions)) {
+                            for (const action of matchedRule.actions) {
+                                if (action.type === 'add_tag' && contact) {
+                                    const newTags = Array.from(new Set([...(contact.tags || []), action.value]));
+                                    await supabase.from('contacts').update({ tags: newTags }).eq('id', contact.id);
+                                }
+                            }
+                        }
+
+                        if (contact) {
+                            await supabase.from('messages').insert({
+                                user_id: userId,
+                                contact_id: contact.id,
+                                text: matchedRule.reply_content,
+                                sender: 'bot'
+                            });
+                        }
                         console.log(`Replied to ${senderId} with rule: ${matchedRule.keyword}`);
                     } else {
-                        // 4. Log Unmatched Query
+                        // 6. Log Unmatched Query
                         await supabase
                             .from('unmatched_queries')
                             .insert([
@@ -87,7 +131,6 @@ router.post('/', async (req, res) => {
                 }
             }
         }
-
         res.status(200).send('EVENT_RECEIVED');
     } else {
         res.sendStatus(404);

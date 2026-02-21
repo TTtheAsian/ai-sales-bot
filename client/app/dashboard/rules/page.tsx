@@ -4,7 +4,14 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, Trash2, MessageSquare, ToggleLeft, ToggleRight, AlertCircle } from 'lucide-react';
 
-interface Rule { id: string; keyword: string; reply_content: string; is_active: boolean; account_id: string; }
+interface Rule {
+    id: string;
+    keyword: string;
+    reply_content: string;
+    is_active: boolean;
+    account_id: string;
+    actions?: { type: string; value: string }[];
+}
 interface Account { id: string; page_id: string; }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -15,6 +22,7 @@ export default function RulesPage() {
     const [selectedAccount, setSelectedAccount] = useState('');
     const [keyword, setKeyword] = useState('');
     const [reply, setReply] = useState('');
+    const [tagToAdd, setTagToAdd] = useState('');
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState<{ text: string; type: 'ok' | 'err' } | null>(null);
 
@@ -40,11 +48,26 @@ export default function RulesPage() {
         e.preventDefault();
         setLoading(true);
         const h = await getHeaders();
+
+        const actions = tagToAdd ? [{ type: 'add_tag', value: tagToAdd }] : [];
+
         const res = await fetch(`${API_URL}/api/rules`, {
             method: 'POST', headers: h,
-            body: JSON.stringify({ account_id: selectedAccount, keyword, reply_content: reply, is_active: true }),
+            body: JSON.stringify({
+                account_id: selectedAccount,
+                keyword,
+                reply_content: reply,
+                is_active: true,
+                actions: actions
+            }),
         });
-        if (res.ok) { setMsg({ text: '規則已新增！', type: 'ok' }); setKeyword(''); setReply(''); load(); }
+        if (res.ok) {
+            setMsg({ text: '規則已新增！', type: 'ok' });
+            setKeyword('');
+            setReply('');
+            setTagToAdd('');
+            load();
+        }
         else { setMsg({ text: '新增失敗', type: 'err' }); }
         setLoading(false);
         setTimeout(() => setMsg(null), 3000);
@@ -88,7 +111,7 @@ export default function RulesPage() {
                             {accounts.map(a => <option key={a.id} value={a.id}>{a.page_id}</option>)}
                         </select>
                     )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label className="block font-rajdhani text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>觸發關鍵字</label>
                             <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="例：價格、報價"
@@ -98,6 +121,11 @@ export default function RulesPage() {
                             <label className="block font-rajdhani text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>自動回覆內容</label>
                             <input value={reply} onChange={e => setReply(e.target.value)} placeholder="你好！我們的價格是..."
                                 className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" required />
+                        </div>
+                        <div>
+                            <label className="block font-rajdhani text-xs mb-1.5" style={{ color: 'var(--neon-purple)' }}>自動標籤 (選填)</label>
+                            <input value={tagToAdd} onChange={e => setTagToAdd(e.target.value)} placeholder="例：詢價、買家"
+                                className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" style={{ borderColor: 'rgba(191, 0, 255, 0.3)' }} />
                         </div>
                     </div>
 
@@ -147,6 +175,11 @@ export default function RulesPage() {
                                             style={{ background: 'rgba(0,245,255,0.1)', color: 'var(--neon-cyan)', border: '1px solid var(--border-cyan)' }}>
                                             {rule.keyword}
                                         </span>
+                                        {rule.actions?.map((act, i) => act.type === 'add_tag' && (
+                                            <span key={i} className="px-2 py-0.5 rounded font-rajdhani text-[10px] text-purple-400 border border-purple-500/30 bg-purple-500/5">
+                                                +{act.value}
+                                            </span>
+                                        ))}
                                         {!rule.is_active && (
                                             <span className="px-2 py-0.5 rounded font-rajdhani text-xs"
                                                 style={{ background: 'rgba(255,0,110,0.1)', color: 'var(--neon-pink)' }}>

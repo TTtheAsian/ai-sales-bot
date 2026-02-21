@@ -6,11 +6,14 @@ import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import {
     LayoutDashboard, MessageSquare, Smartphone, Link2,
-    Settings, Zap, LogOut, Menu, X, ChevronRight, User
+    Settings, Zap, LogOut, Menu, X, ChevronRight, User,
+    Users, MessageCircle
 } from 'lucide-react';
 
 const NAV_ITEMS = [
     { href: '/dashboard/overview', label: '總覽', icon: LayoutDashboard, color: 'var(--neon-cyan)' },
+    { href: '/dashboard/audience', label: '受眾管理', icon: Users, color: 'var(--neon-purple)' },
+    { href: '/dashboard/live-chat', label: '即時對話', icon: MessageCircle, color: 'var(--neon-green)' },
     { href: '/dashboard/rules', label: '自動回覆規則', icon: MessageSquare, color: 'var(--neon-pink)' },
     { href: '/dashboard/accounts', label: '帳號管理', icon: Smartphone, color: 'var(--neon-cyan)' },
     { href: '/dashboard/webhook', label: 'Webhook 設定', icon: Link2, color: 'var(--neon-gold)' },
