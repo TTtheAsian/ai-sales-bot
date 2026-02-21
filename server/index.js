@@ -23,13 +23,15 @@ app.use(bodyParser.json());
 
 // Middleware
 const apiLimiter = require('./middleware/rateLimiter');
-app.use('/api/', apiLimiter); // Apply to all API routes
+const auth = require('./middleware/auth');
+app.use('/api/', apiLimiter);
 
 // Routes
-app.use('/api/accounts', require('./routes/accounts'));
-app.use('/api/rules', require('./routes/rules'));
-app.use('/api/cron', require('./routes/cron')); // New Cron API
-app.use('/webhook', require('./routes/webhook')); // Root level for easier URL config
+app.use('/api/accounts', auth, require('./routes/accounts'));
+app.use('/api/rules', auth, require('./routes/rules'));
+app.use('/api/messages', auth, require('./routes/messages'));
+app.use('/api/cron', require('./routes/cron'));
+app.use('/webhook', require('./routes/webhook'));
 
 app.get('/', (req, res) => {
     res.send('AI Sales Bot Server is running!');

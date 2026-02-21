@@ -4,6 +4,8 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { MessageCircle, Send, User, Bot, Search, Hash } from 'lucide-react';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 interface Message {
     id: string;
     text: string;
@@ -27,7 +29,13 @@ export default function LiveChatPage() {
     const [newMessage, setNewMessage] = useState('');
     const [loadingContacts, setLoadingContacts] = useState(true);
     const [loadingMessages, setLoadingMessages] = useState(false);
+    const [sending, setSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    const getHeaders = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        return { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` };
+    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -90,22 +98,31 @@ export default function LiveChatPage() {
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newMessage.trim() || !selectedContact) return;
+        if (!newMessage.trim() || !selectedContact || sending) return;
 
-        // In a real ManyChat-like app, this would call the Meta API
-        // For this MVP, we log it as a 'bot' reply (manual reply from SaaS user)
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        setSending(true);
+        try {
+            const h = await getHeaders();
+            const res = await fetch(`${API_URL}/api/messages/send`, {
+                method: 'POST',
+                headers: h,
+                body: JSON.stringify({
+                    contactId: selectedContact.id,
+                    text: newMessage
+                })
+            });
 
-        const { error } = await supabase.from('messages').insert({
-            user_id: user.id,
-            contact_id: selectedContact.id,
-            text: newMessage,
-            sender: 'bot'
-        });
-
-        if (!error) {
-            setNewMessage('');
+            if (res.ok) {
+                setNewMessage('');
+            } else {
+                const err = await res.json();
+                alert('傳送失敗: ' + err.error);
+            }
+        } catch (err) {
+            console.error('Send error:', err);
+            alert('傳送出錯，請稍後再試');
+        } finally {
+            setSending(false);
         }
     };
 

@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../services/supabase');
 
-// GET rules (optionally filter by account_id)
+// GET rules (filtered by user)
 router.get('/', async (req, res) => {
     const { accountId } = req.query;
-    let query = supabase.from('rules').select('*');
+    let query = supabase.from('rules').select('*').eq('user_id', req.user.id);
 
     if (accountId) {
         query = query.eq('account_id', accountId);
@@ -18,9 +18,15 @@ router.get('/', async (req, res) => {
 
 // POST create rule
 router.post('/', async (req, res) => {
-    const { account_id, keyword, reply_content } = req.body;
+    const { account_id, keyword, reply_content, actions } = req.body;
     const { data, error } = await supabase.from('rules').insert([
-        { account_id, keyword, reply_content }
+        {
+            account_id,
+            keyword,
+            reply_content,
+            actions: actions || [],
+            user_id: req.user.id
+        }
     ]).select();
 
     if (error) return res.status(500).json({ error: error.message });
@@ -31,7 +37,12 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
-    const { data, error } = await supabase.from('rules').update(updates).eq('id', id).select();
+    const { data, error } = await supabase
+        .from('rules')
+        .update(updates)
+        .eq('id', id)
+        .eq('user_id', req.user.id)
+        .select();
 
     if (error) return res.status(500).json({ error: error.message });
     res.json(data[0]);
@@ -40,7 +51,11 @@ router.put('/:id', async (req, res) => {
 // DELETE rule
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
-    const { error } = await supabase.from('rules').delete().eq('id', id);
+    const { error } = await supabase
+        .from('rules')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', req.user.id);
 
     if (error) return res.status(500).json({ error: error.message });
     res.status(204).send();
